@@ -1,0 +1,181 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+* * *
+
+## Part 1: Data
+The BRFSS project is a collection of surveys designed to measure behavioral risk factors for the non-institutionalized adult population (18 years of age and older) residing in the US. 
+
+**Sample**
+The data consists of 491775 observations and 330 variables.
+
+```{r}
+dim(brfss2013)
+```
+
+**Sampling**
+The data collection could be seen as two types of sampling: Stratified Sampling and Simple Random Sampling. It is stratified sampling because the sample in this survey is drawn from 50 different states in US which can be referred as different stratas in the stratified sampling. It is random sampling because the sample is genereated randomly from telephone and mobile phone interview with adults.
+
+**Population**
+It can be assumed that the sample is representative of the population, given its large sample size and randomness in sampling.
+
+**Observational vs Experiment**
+
+This study is "observational" since the data is collected via telephone interviews where there is no direct interference.
+
+**Association vs Casuality**
+Since it is an observational study, researchers can at best generalise associations between variables rather than prove causality. This is because no random assignment was made while conducting the study. 
+
+* * *
+
+## Part 2: Research questions
+In this research, we focus on the impact of educational levels on individual behaviors.
+
+**Research quesion 1:**
+- educa: Education Level, categorical variable 
+- genhlth: General Health, categorical variable 
+
+Does the educational level have any association with general health? Since the general health is the basic variable of this study, it is important to analyse the general association first before going through the more specific behaviors. The persons who have higher educational levels might be more or less responsible to keep themselves healthy.
+
+**Research quesion 2:**
+- educa: Education Level, categorical variable 
+- sex: Respondents Sex, categorical variable 
+- alcday5: Days In Past 30 Had Alcoholic Beverage, continuous variable 
+
+Does the educational level have any association with the alcohol consumption? It is known that there is a positive assocation between education and alcohol consumption (http://journal.frontiersin.org/article/10.3389/fpubh.2016.00067/full). Nevertheless, we will look into this data to see if the positive assumption is still hold and how it is different between sexes.
+
+**Research quesion 3:**
+- educa: Education Level, categorical variable 
+- sex: Respondents Sex, categorical variable 
+- X_smoker3: Smoked At Least 100 Cigarettes, categorical variable 
+
+Does the educational level have any association with the smoking status? Since we have looked into the alcohol consumption, the smoking status is also worth checking to see if two associations are different from each other. It is generally believed that the person who drink also likely to smoke (http://www.futurity.org/smoking-drinking-1036052-2/).
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+**Research quesion 1:**
+
+We start by checking the distribution of educational levels of respondants in this study.
+
+```{r}
+summary(brfss2013$educa)
+plot(brfss2013$educa)
+```
+We can see that there are significantly more respondants who are high school and college graduates than the ones who are not. 
+
+We also check the general health variable. There is only a small number of missing values which account for 0.04 percent of the sample size.
+```{r}
+summary(brfss2013$genhlth)
+```
+
+```{r}
+df1 <- brfss2013 %>% 
+  filter(!is.na(educa), !is.na(genhlth)) %>%
+  select(genhlth, educa)
+
+df1 %>% 
+  group_by(educa, genhlth) %>% 
+  summarise(count=n()) %>%
+  mutate(proportion=count/sum(count))
+
+ggplot(data=df1, aes(x=educa, fill=genhlth)) + 
+  geom_bar(position="fill") +
+  scale_x_discrete(labels=c("No School", "Elementary", "Some HS", "HS Graduate", "Some College","College Graduate"))
+```
+The figure shows the positive relationship between educational levels and general health. The individuals with higher educational levels tend to be healthier than the ones with lower educational levels. As we can see at the college graduates, there is a small number of the poor general health status, which is approximately 2 percent of the group.
+
+**Research quesion 2:**
+
+The values are stored in a specific format. Theses values indicate how many days per week or per month did you have at least one drink of any alcoholic beverage during the past 30 days. The first digit denotes days per week (1) or days per month (2). The remaining digits indicate the count of days. 
+```{r}
+table(brfss2013$alcday5)
+```
+```{r}
+table(brfss2013$educa)
+table(brfss2013$smoke100)
+table(brfss2013$sex)
+
+df2 <- brfss2013 %>% 
+  filter(!is.na(alcday5), !is.na(educa), !is.na(sex))
+df2$drink <- ifelse(df2$alcday5 > 0, TRUE, FALSE)
+```
+We assign a new variable to indicate that if the number of alcohol drinks is greater than zero, this means they do drink - and vice versa. 
+
+```{r}
+ggplot(data=df2, aes(x=educa, fill=drink)) + 
+  geom_bar(position="fill") +
+  facet_wrap(~sex) +
+  scale_x_discrete(labels=c("No School", "Elementary", "Some HS", "HS Graduate", "Some College","College Graduate")) +
+  coord_flip()
+```
+These plots show the positive link between education levels and alcohol consumption. This link also appears regardless of sex. However, women appear to consume less alcohol than men within the same education levels.
+
+Let us transform data so we only have how many days per month did they have at least one drink of any alcoholic beverage during the past 30 days.
+
+```{r}
+df2 <- brfss2013 %>% 
+  filter(!is.na(alcday5), !is.na(educa), !is.na(sex))
+
+df2$alcday5[(df2$alcday5>=100) & (df2$alcday5<200)] = (df2$alcday5[(df2$alcday5>=100) & (df2$alcday5<200)] - 100) * 4
+
+df2$alcday5[(df2$alcday5>=200)] = (df2$alcday5[(df2$alcday5>=200) & (df2$alcday5<300)] - 200)
+
+str(df2$alcday5)
+summary(df2$alcday5)
+```
+
+We plot the transformed alcday5 values against educational levels.
+
+```{r}
+plot(df2$educa, df2$alcday5)
+```
+From the plot, we can conclude that there is a positive relationship between education levels and alcohol consumption.
+
+**Research quesion 3:**
+
+X_smoker3 shows a computed smoking status consisting of four-level smoker statuses which are everyday smoker, someday smoker, former smoker, non-smoker.
+
+```{r}
+summary(brfss2013$X_smoker3)
+```
+
+```{r}
+table(brfss2013$educa)
+table(brfss2013$X_smoker3)
+table(brfss2013$sex)
+
+df3 <- brfss2013 %>% 
+  filter(!is.na(educa), !is.na(X_smoker3), !is.na(sex)) %>% 
+  select(educa, X_smoker3, sex)
+
+ggplot(data=df3, aes(x=educa, fill=X_smoker3)) + 
+  geom_bar(position="fill") +
+  facet_wrap(~sex) +
+  scale_x_discrete(labels=c("No School", "Elementary", "Some HS", "HS Graduate", "Some College","College Graduate")) +
+  coord_flip()
+```
+
+These plots show interesting results if we compare them with the ones with alcohol consumption. Conversely, the relationship appears to be negative. The adults with higher education levels tend to smoke less than the ones with lower educational levels. Although, the adults with elementary and no school levels also appear to have small numbers of smokers but the sample sizes of these groups are significantly smaller than the last three which are college graduates, some colleges, and high school graduates. Therefore, we can partly conclude that there is a negative association between these two variables.  
