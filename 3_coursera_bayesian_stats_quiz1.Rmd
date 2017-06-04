@@ -1,0 +1,141 @@
+Week 1 Practice Quiz
+
+dbinom
+http://www.r-tutor.com/elementary-statistics/probability-distributions/binomial-distribution
+
+Q1. Julia is having an outdoor wedding ceremony tomorrow. In recent years, it has rained on average 50 days per year. Unfortunately, the meteorologist has predicted rain for her wedding day. When it rains, the meteorologist will have correctly predicted it 80 percent of the time. When it does not rain, the meteorologist will have incorrectly predicted rain 30 percent of the time. Given this information, what is the probability that it rains on Julia's wedding day?
+
+A1.
+P(P+ & R+) = 50/356 * 80/100
+P(P+ & R-) = 315/356 * 30/100
+
+P(A|B) = P(A)*P(B|A) / P(B)
+P(R+|data) = p(model)(data|model) / p(data) = P(P+ & R+) / (P(P+ & R+) + P(P+ & R-))
+
+```{r}
+p_rain=50/360
+p_rain_rain=0.8
+p_rain_noRain=0.3
+
+(p_rain*p_rain_rain) / (p_rain * p_rain_rain + (1-p_rain) * p_rain_noRain)
+```
+Q2. Suppose we have two hypotheses, H0 and H1. Assuming our prior places equal weight on H0 and H1, which of the following statements is false?
+
+A2.
+
+a) If the posterior probability of H0 is less than .05, the p-value under H0 will also be less than .05.
+
+False. A simple but extreme counterexample: Suppose the prior probability P(H0) = 0. Then regardless of the how well H0 explains the data (which increases the p-value), the posterior probability of H0 will also be zero.
+
+b) If the p-value is less than .05, the probability that we see data at least as extreme as our observed
+data is less than .05, given that H0 is true.
+
+True. When the p-value is low, we reject H0 because it is rare.
+
+c) If the cost of making a type-I error is the same as the cost of making a type II error and the posterior
+probability of H1 is greater than the posterior probability of H0, we should reject H0.
+
+True. If the cost of making a wrong decision is the same regardless of which decision we make, we should choose the hypothesis with the highest posterior probability. This corresponds to a {0, 1} loss function, which you will learn about later in the course.
+
+Q3. Suppose 20 people are randomly sampled from the population and their gender is recorded. Which of the following best represents the likelihood of the number of males observed k?
+
+A3. ???the probability of observing exactly k males in 20 samples, given p, the true population proportion of males.??? we can model the number of males we see as coming from a binomial distribution with parameter p, the true proportion of males in the population.
+
+Q4. Which of the following statements is consistent with both Bayesian and frequentist interpretations of probability?
+
+A4. Probability is a measure of the likelihood that an event will occur. This likelihood can be treated as a degree of belief by a Bayesian or a long-run frequency proportion by a frequentist.
+
+Q5. You are told that a coin has either a strong tails bias (p = 0.2), a weak tails bias (p = 0.4 ), no bias (p = 0.5), a weak heads bias ( p = 0.6), or a strong heads bias ( p = 0.8). You assign a prior probability of 1/2 that the coin is fair and distribute the remaining 1/2 prior probability equally over the other four possible scenarios. You flip the coin three times and it comes up heads all three times. What is the posterior probability that the coin is biased towards heads?
+
+A5. 
+
+P(biased toward head|data) = p(model)(data|model) / p(data) = P(D & p=0.6) + P(D & p = 0.8) / p(D)
+
+Since the prior P (p = 0.5) = 0.5 and the remaining probability is distributed equally over the other four scenarios, P(p = 0.2) = P(p = 0.4) = P(p = 0.6) = P(p = 0.8) = 0.125. Plugging the likelihood and prior probabilities into the formula above, we get
+
+```{r}
+p_weak_head = (0.6**3) * (0.125)
+p_strong_head = (0.8**3) * (0.125)
+p_weak_tail = (0.4**3) * (0.125)
+p_strong_tail = (0.2**3) * (0.125)
+p_no_bias = (0.5**3) * (0.5)
+p_data = p_weak_head + p_strong_head + p_weak_tail + p_strong_tail + p_no_bias
+
+(p_weak_head + p_strong_head)/ p_data
+```
+
+```{r}
+p=c(0.2,0.4,0.5,0.6,0.8)
+prior=c(.5/4,.5/4,.5,.5/4,.5/4)
+likelihood=choose(3,3)*p**3
+p_data = sum(prior*likelihood)
+posterior=(prior*likelihood)/p_data
+posterior
+
+sum((prior*likelihood)[4:5])/p_data
+```
+
+Week 1 Quiz
+
+You draw two balls from one of three possible large urns.
+```{r}
+P_B_Ua<-1/2 # Blue bal in Urn A
+P_G_Ua<-1/3 
+P_R_Ua<-1/6
+P_B_Ub<-1/6 # Blue bal in Urn B
+P_G_Ub<-1/2 
+P_R_Ub<-1/3
+P_B_Uc<-1/3 # Blue bal in Urn C
+P_G_Uc<-1/6 
+P_R_Uc<-1/2
+Prior<-1/3
+
+P_Uc_data<-(1/3*1/2*Prior)/((1/3*1/2*Prior)+(1/2*1/6*Prior)+(1/3*1/6*Prior))
+P_Uc_data
+```
+
+```{r}
+prior=rep(1/3,3)
+likelihood=c((1/6)*(1/2), (1/3)*(1/6), (1/2)*(1/3))
+post=(prior*likelihood)/sum(prior*likelihood)
+post
+```
+
+You go to Las Vegas and sit down at a slot machine.
+```{r}
+p=c(1/1000, 1/1000000)
+prior=c(0.5,0.5)
+likelihood=choose(10,0)*(1-p)**10
+posterior=(prior*likelihood)/sum(prior*likelihood)
+
+prior
+likelihood
+posterior
+```
+
+Hearing about your brilliant success in working with M&Ms, Mars Inc. transfers you over to the Skittles department. 
+```{r}
+1 - pbinom(5-1,300,0.01)
+```
+
+You decide to conduct a statistical analysis of a lottery to determine how many possible lottery combinations there were.
+```{r}
+p<-1:9
+p<-10^-8/p
+p_model<-1/9
+p_data_model<-dbinom(3, 413271201, p)
+numerator<-p_model*p_data_model
+denominator<-sum(numerator)
+post_p<-numerator/denominator
+sum(post_p[1:5])
+
+1
+x<-999
+0.8*(1-pbinom(x-1,6000,1/6))/(0.8*(1-pbinom(x-1,6000,1/6))+0.2*(1-pbinom(x-1,6000,0.175)))
+```
+
+You are testing dice for a casino to make sure that sixes do not come up more frequently than expected. 
+```{r}
+x<-999
+0.8*(1-pbinom(x-1,6000,1/6))/(0.8*(1-pbinom(x-1,6000,1/6))+0.2*(1-pbinom(x-1,6000,0.175)))
+```
