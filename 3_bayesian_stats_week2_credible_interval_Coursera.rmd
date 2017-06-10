@@ -61,7 +61,7 @@ credible_interval_app()
 </div>
 ```{r normal-ci}
 # type your code for the Exercise here, and Knit
-
+qnorm(c(0.025, 0.975), mean = 10, sd = 2.236)
 ```
 
 
@@ -78,7 +78,7 @@ credible_interval_app()
 </div>
 ```{r beta-ci}
 # type your code for the Exercise here, and Knit
-
+qbeta(c(0.05, 0.95), shape1 = 2, shape2 = 5)
 ```
 
 
@@ -95,7 +95,7 @@ credible_interval_app()
 </div>
 ```{r gamma-ci}
 # type your code for the Exercise here, and Knit
-
+qgamma(c(0.005, 0.995), shape = 4, rate = 8)
 ```
 
 
@@ -157,6 +157,10 @@ Let's now use a more informative prior that reflects a stronger belief that the 
 <div id="exercise">
 **Exercise**: Confirm by plotting the following two Beta distributions that we have used as priors so far using the app that the $Beta(a = 500, b = 500)$ distribution is centered around 0.5 and much narrowed than the uniform, i.e. $Beta(a = 1, b = 1)$, distribution.
 </div>
+```{r}
+hist(rbeta(1000,shape1=500,shape2=500))
+hist(rbeta(1000,shape1=1,shape2=1))
+```
 
 
 6. What is the 95% credible interval for $p$, the proportion of females in the population, based on a prior distribution of $Beta(a = 500, b = 500)$. **Hint:** You need to determine the posterior distribution first, and then you can use the app to construct the credible interval.
@@ -167,8 +171,14 @@ Let's now use a more informative prior that reflects a stronger belief that the 
 <li> (0.502, 0.527) </li> 
 </ol>
 
-Let's consider one other prior distribution: $Beta(a = 5, b = 200)$. 
+```{r}
+p=seq(from=0,to=1,by=0.0001)
+prior=dbeta(p,shape1=500,shape2=500)
+likelihood=dbinom(x,size=n,p=p)
+qbeta(c(0.025, 0.975), shape1 = 3086, shape2 = 2914)
+```
 
+Let's consider one other prior distribution: $Beta(a = 5, b = 200)$. 
 
 7. Which is of the following is the center of the $Beta(a = 5, b = 200)$ distribution?
 <ol>
@@ -177,6 +187,12 @@ Let's consider one other prior distribution: $Beta(a = 5, b = 200)$.
 <li> approximately 0.50 </li>
 <li> approximately 0.97 </li>
 </ol>
+```{r}
+hist(rbeta(1000, shape1=5,shape2=200))
+
+qbeta(c(0.245, 0.755), shape1 = 5, shape2 = 200)
+
+```
 
 
 8. What is the 95% credible interval for $p$, the proportion of females in the population, based on a prior distribution of $Beta(a = 5, b = 200)$. **Hint:** You need to determine the posterior distribution first, and then you can use the app to construct the credible interval.
@@ -186,6 +202,14 @@ Let's consider one other prior distribution: $Beta(a = 5, b = 200)$.
 <li> (0.486, 0.509) </li>
 <li> (0.484, 0.511) </li>
 </ol>
+
+```{r}
+p=seq(from=0,to=1,by=0.0001)
+prior=dbeta(p,shape1=5,shape2=200)
+likelihood=dbinom(x,size=n,p=p)
+qbeta(c(0.025, 0.975), shape1=2591, shape2=2614)
+```
+
 
 In summary, when we used a prior distribution that was centered around a realistic value for $p$ (0.5), the credible interval we obtained was also realistic. However when we used a strong prior distribution that was centered around a clearly unrealistic value for $p$, the credible interval we obtained did not match the distribution of the data. Hence, a good prior helps, however a bad prior can hurt your results. 
 
@@ -204,6 +228,12 @@ table(brfss$exercise)
 <li> (0.718, 0.737) </li>
 <li> (0.758, 0.789) </li>
 </ol>
+```{r}
+n <- length(brfss$exercise)
+x <- sum(brfss$exercise == "Yes")
+qbeta(c(0.05, 0.95), shape1 = 3868, shape2 = 1132)
+```
+
 
 ## Gamma-Poisson
 
@@ -219,6 +249,13 @@ Once again, our choice of the prior parameters ($a$ and $b$) should reflect our 
 <div id="exercise">
 **Exercise**: Plot the following three prior Gamma distributions, $Gamma(a = 4, b = 1)$, $Gamma(a = 12, b = 3)$, and $Gamma(a = 120, b = 30)$ using the app. Confirm that they all have the same center but different spreads. Order them in ascending order of spreads, from least to most variable.
 </div>
+
+```{r}
+hist(rgamma(10000, shape = 4, rate = 1))
+hist(rgamma(10000, shape = 12, rate = 3))
+hist(rgamma(10000, shape = 120, rate = 30))
+```
+
 
 ### Data and the updating rule
 
@@ -241,7 +278,10 @@ $$ \beta = b + n $$
 </ol>
 ```{r q10}
 # type your code for Question 10 here, and Knit
-
+x = c(2,3,4,5,4)
+shape = 4 + sum(x)
+rate = 1 + length(x) 
+c(shape, rate)
 ```
 
 11. The government recooments that Americans consume approximately 5 servings of fruits per day. Which of the following represents a weak prior that Americans on average follow this recommendation.
@@ -262,7 +302,12 @@ $$ \beta = b + n $$
 
 ```{r q12}
 # type your code for Question 12 here, and Knit
-
+t=table(brfss$fruit_per_day)
+x=sum(t*as.numeric(names(t)))
+n <- length(brfss$fruit_per_day)
+a=5+x
+b=1+n
+c(a,b)
 ```
 
 
@@ -273,7 +318,10 @@ $$ \beta = b + n $$
 <li> (1.592, 1.651) </li> 
 <li> (1.575, 1.668) </li> 
 </ol>
-
+```{r q13}
+# type your code for Question 12 here, and Knit
+qgamma(c(0.05, 0.95), shape = a, rate = b)
+```
 14. Based on this result, do Americans appear to follow the government guidelines which recommend consuming 5 servings of fruits per day?
 <ol>
 <li> Yes </li>
@@ -287,7 +335,12 @@ $$ \beta = b + n $$
 
 ```{r veg_day}
 # type your code for the Exercise here, and Knit
-
+t=table(brfss$vege_per_day)
+x=sum(t*as.numeric(names(t)))
+n <- length(brfss$vege_per_day)
+a=5+x
+b=1+n
+qgamma(c(0.05, 0.95), shape = 5434, rate = 5001)
 ```
 
 
