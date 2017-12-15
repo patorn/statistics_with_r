@@ -1,0 +1,156 @@
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+Patorn Utenpattanun 2017
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+```{r load-data}
+load("data/gss.Rdata")
+```
+
+* * *
+
+## Part 1: Data
+The data comes from the General Social Survey (GSS). The random sampling was used since the sample was from an observational study in which the data was collected randomly by computer-assisted personal interview (CAPI), face-to-face interview, and telephone interview. However, the random assignment was not made since no experiment was done. Therefore, the sample can only be used to infer generalisation rather than causality between variables.
+
+* * *
+
+## Part 2: Research question
+
+The research question is how do the working class people and the middle-class people compare with respect to their opinions on whether or not the government should be the only side assisting the poor. The answer to this question is interesting because it shows the views of the common social classes towards the populist policy which may be important to politicians seeking to understand their constituents at large.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+To find the difference of people who think that the goverment should be the only one assisting the poor, we have to define the new variable as follows. 
+
+```{r}
+
+data <- gss %>%
+  filter(!is.na(class) & !is.na(helppoor)) %>%
+  select(class, helppoor)
+
+data$helpgovt = 'No'
+data$helpgovt[data$helppoor == 'Govt Action'] = 'Yes'
+
+data <- data %>%
+  filter(class %in% c('Working Class', 'Middle Class')) %>%
+  droplevels %>% 
+  select(class, helpgovt) 
+```
+
+```{r}
+addmargins(table(data))
+```
+
+The total of 17,438 of the sample was used in this analysis. 
+
+```{r}
+prop.table(table(data), margin = 1)
+```
+
+The summary statistics show that 25% of working class and 18% of middle class believe that the government should support the poor.
+
+```{r}
+difference = as.data.frame.matrix(prop.table(table(data), margin = 1))
+diff(difference$Yes)
+```
+
+The difference between the proportions of sampled working class and sampled middle class who believe the government should take action in supporting the poor is around 6.7%. This seems to indicate a noticeably difference between groups.
+
+```{r}
+
+ggplot(data = data, aes(x=class, fill=helpgovt)) + 
+  geom_bar()
+```
+
+The plot shows the total counts of the proportions. It is not easy to spot the difference.
+
+```{r}
+ggplot(data = data, aes(x=class, fill=helpgovt)) + 
+  geom_bar(position="fill")
+```
+
+This percentage plot visually suggests the difference between opinions on government assistance and the given social classes. The working class seems to favor the government's actions than the middle class.
+
+* * *
+
+## Part 4: Inference
+
+### Step 1. Confidence Interval
+
+We use a confidence interval at a 95% confidence level to estimate how working class and middle class at large compare with respect to their views on the government's actions in supporting the poor.
+
+**Check conditions**.
+
+**1. Independence:** 
+
+- Within groups: Random sample: The observations are collected by independent interview.
+- Within groups: If sampling without replacement, n < 10% of population. The total data points are 17,438 which are less than the 10% of the US population.
+- Between groups: The two groups are independent from each other: Each data point represents a different person.
+
+**2. Sample size/skew:**
+
+- Working Class: 2296 Successes, 6745 Failures, Both numbers >= 10
+- Middle Class: 1567 Successes, 6830 Failures, Both numbers >= 10
+
+
+**Null Hypothesis (H0):** The difference between proportions of working class and middle class towards government assistance should be zero.  
+
+**Alternative Hypothesis (HA):** The difference between proportions of working class and middle class towards government assistance should not be zero. 
+
+```{r}
+inference(x = as.factor(class), y = helpgovt, data = data, statistic = "proportion", type = "ci", method = "theoretical", success = "Yes", conf_level = 0.95)
+```
+
+Based on the confidence interval we calculated, we can expect to find a significant difference between 0.055 to 0.079. Therefore, we should reject H0 for HA because the difference is not equal to zero.
+
+### Step 2. Hypothesis Testing
+
+We conduct a hypothesis test, at 5% significance level, evaluating if working class and middle class are equally likely to answer ???Yes??? to the question about whether the government should take actions in supporting the poor.
+
+**Check conditions.**
+
+**1. Independence:**
+
+- Within groups: Random sample, The observations are collected by independent interview.
+- Within groups: If sampling without replacement, n < 10% of population. The total data points are 17,438 which are less than the 10% of the US population.
+- Between groups: The two groups are independent from each other: Each data point represents a different person.
+
+**2. Sample size/skew:** Pooled Yes = (2296 + 1567)/17438 = 0.22, Pooled No = 0.78
+
+- Working Class: 2296 * 0.22 = 505.12 Successes, 6745 * 0.78 = 5261 Failures, Both numbers >= 10
+- Middle Class: 1567 * 0.22 = 344.74 Successes, 6830 * 0.78 = 5327.4 Failures, Both numbers >= 10
+
+
+**H0:** The difference between proportions of working class and middle class towards government assistance should be zero.
+
+**HA:** The difference between proportions of working class and middle class towards government assistance should not be zero.
+
+```{r}
+inference(x = as.factor(class), y = helpgovt, data = data, statistic = "proportion", type = "ht", alternative = 'twosided', method = "theoretical", success = "Yes", sig_level = 0.05)
+```
+
+The low p-value suggests that we should reject H0 for HA. There is a difference between proportions of government assistance and the two social classes should not be zero. 
+
+### Step 3. Conclusion
+
+To answer the research question, both methods agree that there is a difference in two social classes with respect to the role of the government in supporting the poor. Based on the confidence interval which we implemented to see the numerical difference, we can expect around 5 to 7 percent difference betweeen two proportions. The future study would include the whole dataset of all social classes and use chi-square testing to see the difference and later compare one by one.  
