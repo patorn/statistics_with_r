@@ -1,0 +1,178 @@
+---
+title: "Modeling and prediction for movies"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(GGally)
+library(gridExtra)
+```
+
+### Load data
+```{r load-data}
+load("../data/movies.Rdata")
+```
+
+* * *
+
+## Part 1: Data
+
+The project aims to use linear regression to predict the audience score of Rotten Tomatoes based on a set of movie characteritics from Rotten Tomatoes and IMDB. The data is consisted of 651 randomly sampled movies released before 2016. The random sampling was used to create this dataset but no experiment with random assignment was done. Therefore, the sample can only be appropriate to infer generalisation rather than causality.
+
+```{r}
+print(nrow(movies))
+head(movies)
+```
+
+* * *
+
+## Part 2: Research question
+
+The research question is that is there a association between the audience score of a movie with other film charateristics. The answer to this question is interesting because it shows the predictive capality of the linear regression and the importance of feature selection.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+### Summary Statistics
+```{r eda-summary}
+summary(movies[, c(18, 4, 13, 14, 16)])
+```
+From the statistics summary of audience scores, the majority of movies have audience scores higher than 62.36. This might lead to bias in our model.
+
+### Numerical features against audience_score
+```{r eda-corr}
+ggpairs(na.omit(movies), columns = c(18, 4, 13, 14, 16))
+```
+We ploted each variable against the predicted variable (audience_score). From the plot, IMDB Rating has the highest correlation of 0.86 followed by Critic's Score of which the value is 0.7. 
+
+### Categorical features against audience_score
+```{r eda-cat}
+p01 <- ggplot(movies, aes(x = best_pic_win, y = audience_score)) + geom_boxplot()
+p02 <- ggplot(movies, aes(x = best_actor_win, y = audience_score)) + geom_boxplot()
+p03 <- ggplot(movies, aes(x = best_actress_win, y = audience_score)) + geom_boxplot()
+p04 <- ggplot(movies, aes(x = best_dir_win, y = audience_score)) + geom_boxplot()
+grid.arrange(p01, p02, p03, p04, ncol=2, top="Features vs Audience Score")
+```
+Being the best picture winner also implies a higher audience score than the other films but these are not obvious as the IMDB rating and Critic's score.
+
+* * *
+
+## Part 4: Modeling
+
+From exploratory data analysis, there are four features that will be used in the modeling.
+- imdb_rating
+- critics_score
+- runtime
+- best_pic_win
+
+```{r}
+movies_features <- na.omit(movies)
+```
+
+For the model selection method, we use forward selection evaluated by adjusted $R^2$. 
+We will add each variable one by one until we get the highest adjusted $R^2$. 
+This is another method that can find the best model.
+
+```{r modeling, results = 'hold'}
+sprintf("1 Variable")
+m_fs <- lm(audience_score ~ imdb_rating, data = movies_features)
+sprintf("imdb_rating : %s", summary(m_fs)$adj.r.squared)
+m_fs <- lm(audience_score ~ critics_score, data = movies_features)
+sprintf("critics_score : %s", summary(m_fs)$adj.r.squared)
+m_fs <- lm(audience_score ~ runtime, data = movies_features)
+sprintf("runtime : %s", summary(m_fs)$adj.r.squared)
+m_fs <- lm(audience_score ~ best_pic_win, data = movies_features)
+sprintf("best_pic_win : %s", summary(m_fs)$adj.r.squared)
+print("2 Variables")
+m_fs <- lm(audience_score ~ imdb_rating + critics_score, data = movies_features)
+sprintf("imdb_rating + critics_score: %s", summary(m_fs)$adj.r.squared)
+m_fs <- lm(audience_score ~ imdb_rating + runtime, data = movies_features)
+sprintf("imdb_rating + runtime: %s", summary(m_fs)$adj.r.squared)
+m_fs <- lm(audience_score ~ imdb_rating + best_pic_win, data = movies_features)
+sprintf("imdb_rating + best_pic_win: %s", summary(m_fs)$adj.r.squared)
+print("3 Variables")
+m_fs <- lm(audience_score ~ imdb_rating + critics_score + runtime, data = movies_features)
+sprintf("imdb_rating + critics_score + runtime: %s", summary(m_fs)$adj.r.squared)
+m_fs <- lm(audience_score ~ imdb_rating + critics_score + best_pic_win, data = movies_features)
+sprintf("imdb_rating + critics_score + best_pic_win: %s", summary(m_fs)$adj.r.squared)
+print("4 Variables")
+m_fs <- lm(audience_score ~ imdb_rating + critics_score + runtime + best_pic_win, data = movies_features)
+sprintf("imdb_rating + critics_score + runtime + best_pic_win: %s", summary(m_fs)$adj.r.squared)
+```
+
+From the steps above, we can see that the best model is imdb_rating + critics_score + runtime.
+
+```{r}
+m_final <- lm(audience_score ~ imdb_rating + critics_score + runtime, data = movies_features)
+summary(m_final)
+```
+So we trained the model with 3 variables. The coeffiecient intepretations are as follows:
+- Intercept: When there is no data, the movie will have the audience score of -32.9.
+- imdb_rating: When imdb_rating by 1, the audience score increases by 14.95.
+- critics_score: When critics_score by 1, the audience score increases by 0.07.
+- runtime: When runtime by 1, the audience score decreases by 0.05.
+
+Next, we check the validity of the multiple linear regression.
+
+### 1. Nearly normal residuals 
+```{r diag-mlr-model}
+# type your code for the Exercise here, and Knit
+hist(m_final$residuals)
+qqnorm(m_final$residuals)
+qqline(m_final$residuals)
+```
+Residuals are left skewed, but the sample size is relatively large, so this might not be an important violation of conditions.
+
+### 2. Constant variability of residuals (Absolute values of residuals against fitted values) 
+```{r}
+plot(abs(m_final$residuals) ~ m_final$fitted.values)
+```
+The chart shows that the model tends to predict the audience's score more accurate for the score greater than 40 while it performs poorly for the score less than 40.
+
+### 3. Residuals are independent
+```{r}
+plot(m_final$residuals ~ c(1:nrow(movies_features)))
+```
+Classes are sampled randomly. There is no order effect. Most movies are scattered around 0.
+
+### 4. Linear relationships between x and y
+```{r}
+ggpairs(movies_features, columns = c(18, 4, 13, 16))
+```
+We can see that there is a linear relationship between these 3 variables and the target variable. 
+
+* * *
+
+## Part 5: Prediction
+
+```{r}
+new_movie <- data.frame(
+  runtime=112,
+  thtr_rel_year=2016,
+  imdb_rating=8.5,
+  imdb_num_votes=70326,
+  critics_score=97,
+  audience_score=94
+)
+predicted_score <- predict(m_final, new_movie, interval = "prediction", level = 0.95)
+predicted_score
+```
+We tested the performance of the linear regression with an out-of-sample movie. That movie is "Your Name", the successful Japanese animation in 2016 (http://www.imdb.com/title/tt5311514/?ref_=adv_li_tt, https://www.rottentomatoes.com/m/your_name_2017/). As a result, the predicted value seems to be consistent with the actual value. The true audience score for the movie is 94 while the model prediction is 94.9 with a 95% confidence interval of 74.9 to 114.9. So the model is 95% confident that the audience score will lie in this interval.
+
+* * *
+
+## Part 6: Conclusion
+
+In conclusion, our linear regression model is quite effective in predicting movie's audience score based on its characteristics. Although, the model does not fit well with the data which have lower audience scores; nonetheless, the model can be improved by other methods. For example, we can create a model for each genre to make the prediction more accurate or we can add more movies with lower audience scores to compensate the bias towards the movies with high audience scores.

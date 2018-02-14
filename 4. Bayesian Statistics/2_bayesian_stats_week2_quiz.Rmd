@@ -1,5 +1,18 @@
 Week 2 Practice Quiz
 
+Q.Below are plots of the prior distribution for a parameter $\theta$ and the likelihood as a function of $\theta$ based on 10 observed data points.
+
+
+```{r}
+x<-seq(0,10,by=0.01)
+prior<-dgamma(x,2,1)
+likelihood<-dnorm(x,4,0.5)/1e6
+posterior<-prior*likelihood
+plot(x,likelihood,type="l",col="red",ylim=c(0,.000001))
+lines(x,posterior,col="black")
+lines(x,prior,col="blue")
+```
+
 Q. Suppose that you sample 24 M&Ms from a bag and find that 3 of them are yellow. Assuming that you place a uniform Beta(1,1) prior on the proportion of yellow M&Ms p, what is the posterior probability that p < 0.2 ?
 
 ```{r}
@@ -37,7 +50,11 @@ Q. If John is trying to perform a Bayesian analysis to make inferences about the
 Q. You are hired as a data analyst by politician A. She wants to know the proportion of people in Metrocity who favor her over politician B. From previous poll numbers, you place a Beta(40,60) prior on the proportion. From polling 200 randomly sampled people in Metrocity, you find that 103 people prefer politician A to politician B. What is the posterior probability that the majority of people prefer politician A to politican B (i.e. P(p>0.5|data))?
 
 ```{r}
-1 - pbeta(0.5, 143, 157)
+posterior_a = 40 + 103
+posterior_b = 60 + 200 - 103
+qbeta(c(0.025, 0.975), posterior_a, posterior_b)
+
+pbeta(0.5, posterior_a, posterior_b, lower.tail = FALSE)
 
 # Detailed
 p=seq(from=0, to=1, by=0.00001)
@@ -47,23 +64,19 @@ posterior=(prior*likelihood)/sum(prior*likelihood)
 sum(posterior[p>0.5])
 ```
 
-Q. A young meteorologist is trying to estimate the expected number of tropical cyclones that occur in a given year. He assumes that the number of observed tropical cyclones in a year follows a Poisson distribution with rate ?? that is consistent across years. Because the meteorologist is inexperienced, he assigns a relatively uninformative Gamma(k=.5,??=2) prior distribution to ??. During his first five years, he observes a total of 49 cyclones. If he were to collect more data about tropical cyclones in future years, what should his prior be?
-
-```{r}
-# Gamma(k=49.5,??=2/11)
-```
-
 Q. Suppose that the number of fish that Hans catches in an hour follows a Poisson distribution with rate ??. If the prior on ?? is Gamma(1,1) and Hans catches no fish in five hours, what is the posterior distribution for ???
 
 ```{r}
 # Gamma(k=49.5,??=2/11)
+k_prior = 1+0
+theta_prior = 1/(5*1+1)
 ```
 
 Q. A young meteorologist is trying to estimate the expected number of tropical cyclones that occur in a given year. He assumes that the number of observed tropical cyclones in a year follows a Poisson distribution with rate ?? that is consistent across years. Because the meteorologist is inexperienced, he assigns a relatively uninformative Gamma(k=.5,??=2) prior distribution to ??. During his first five years, he observes a total of 49 cyclones. If he were to collect more data about tropical cyclones in future years, what should his prior be?
 
 ```{r}
 k_prior = 0.5+49
-theta_prior = 2/(2+1)
+theta_prior = 2/(5*2+1)
 ```
 
 Q. Suppose you are given a coin and told that the die is either biased towards heads (p = 0.75 ) or biased towards tails (p = 0.25 ). Since you have no prior knowledge abou the bias of the coin, you place a prior probability of 0.5 on the outcome that the coin is biased towards heads. You flip the coin twice and it comes up tails both times. What is the posterior probability that your next flip will be heads?
@@ -73,10 +86,10 @@ Q. Suppose you are given a coin and told that the die is either biased towards h
 p=c(0.25,0.75)
 prior=c(0.5,0.5)
 likelihood=dbinom(0,size=2,p=p)
+likelihood
 posterior=(prior*likelihood)/sum(prior*likelihood)
 posterior
-
-# Find the probability of having 2 heads after 2 tails
+# Find the probability of 1 head after 2 tails
 sum(dbinom(1,size=1,p=p) * posterior)
 ```
 

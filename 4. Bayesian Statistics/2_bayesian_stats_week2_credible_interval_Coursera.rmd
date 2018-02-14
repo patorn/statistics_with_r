@@ -172,10 +172,21 @@ hist(rbeta(1000,shape1=1,shape2=1))
 </ol>
 
 ```{r}
+posterior_a = 500 + x
+posterior_b = 500 + n - x
+posterior_a/n
 p=seq(from=0,to=1,by=0.0001)
-prior=dbeta(p,shape1=500,shape2=500)
-likelihood=dbinom(x,size=n,p=p)
-qbeta(c(0.025, 0.975), shape1 = 3086, shape2 = 2914)
+posterior=dbeta(p, posterior_a, posterior_b)
+plot(p, posterior, ylim=c(0, 1), lwd = 3)
+
+calcBetaMean <- function(aa, bb) { BetaMean <- (aa)/(aa + bb); return(BetaMean); }
+calcBetaSd   <- function(aa, bb) { BetaSd <- sqrt((aa * bb)/(((aa + bb)^2) * (aa + bb + 1))); return(BetaSd); }
+
+posterior_mean = calcBetaMean(posterior_a, posterior_b)
+posterior_sd =calcBetaSd(posterior_a, posterior_b)
+
+c(posterior_mean - (1.96 * posterior_sd), posterior_mean + (1.96 * posterior_sd))
+qbeta(c(0.025, 0.975), posterior_a, posterior_b)
 ```
 
 Let's consider one other prior distribution: $Beta(a = 5, b = 200)$. 
@@ -205,8 +216,8 @@ qbeta(c(0.245, 0.755), shape1 = 5, shape2 = 200)
 
 ```{r}
 p=seq(from=0,to=1,by=0.0001)
-prior=dbeta(p,shape1=5,shape2=200)
-likelihood=dbinom(x,size=n,p=p)
+posterior=dbeta(p, 5 + x, 200 + n - x)
+plot(p, posterior, ylim=c(0, 1), lwd = 3)
 qbeta(c(0.025, 0.975), shape1=2591, shape2=2614)
 ```
 

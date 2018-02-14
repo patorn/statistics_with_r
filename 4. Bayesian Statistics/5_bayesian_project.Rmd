@@ -1,0 +1,230 @@
+---
+title: "Bayesian modeling and prediction for movies"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(BAS)
+library(grid)
+library(gridExtra)
+library(ggcorrplot)
+```
+
+### Load data
+
+```{r load-data}
+load("../data/movies.Rdata")
+```
+
+
+* * *
+
+## Part 1: Data
+The project aims to use Bayesian Inference to predict the audience score of Rotten Tomatoes based on a set of movie features from Rotten Tomatoes and IMDB. The data is consisted of 651 randomly sampled movies released before 2016. Although, the random sampling was used to generate this set of data, the random assignment was not made because there was no experiment being done. Therefore, the sample can only be used to infer generalisation rather than causality between variables.
+
+```{r}
+print(nrow(movies))
+head(movies)
+```
+
+* * *
+
+## Part 2: Data manipulation
+The five new features were added to the dataset as part of a feature engineering task.
+
+```{r}
+movies <- movies %>% 
+          mutate(feature_film=as.factor(ifelse(title_type == 'Feature Film', 'yes', 'no'))) %>%
+          mutate(drama=as.factor(ifelse(genre == 'Drama', 'yes', 'no'))) %>%
+          mutate(mpaa_rating_R=as.factor(ifelse(mpaa_rating == 'R', 'yes', 'no'))) %>%
+          mutate(oscar_season=as.factor(ifelse(thtr_rel_month %in% c(10:12), 'yes', 'no'))) %>%
+          mutate(summer_season=as.factor(ifelse(thtr_rel_month %in% c(5:8), 'yes', 'no')))
+```
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+```{r}
+p01 <- ggplot(movies, aes(x = genre, y = audience_score)) + geom_boxplot() + theme(axis.text.x = element_text(angle=60, hjust=1))
+p02 <- ggplot(movies, aes(x = runtime, y = audience_score)) + geom_point()
+p03 <- ggplot(movies, aes(x = feature_film, y = audience_score)) + geom_boxplot()
+p04 <- ggplot(movies, aes(x = title_type, y = audience_score)) + geom_boxplot()
+p11 <- ggplot(movies, aes(x = mpaa_rating, y = audience_score)) + geom_boxplot()
+p12 <- ggplot(movies, aes(x = mpaa_rating_R, y = audience_score)) + geom_boxplot()
+p13 <- ggplot(movies, aes(x = thtr_rel_year, y = audience_score)) + geom_point()
+p14 <- ggplot(movies, aes(x = dvd_rel_year, y = audience_score)) + geom_point()
+p21 <- ggplot(movies, aes(x = drama, y = audience_score)) + geom_boxplot()
+p22 <- ggplot(movies, aes(x = oscar_season, y = audience_score)) + geom_boxplot()
+p23 <- ggplot(movies, aes(x = summer_season, y = audience_score)) + geom_boxplot()
+p24 <- ggplot(movies, aes(x = imdb_rating, y = audience_score)) + geom_point()
+p31 <- ggplot(movies, aes(x = imdb_num_votes, y = audience_score)) + geom_point()
+p32 <- ggplot(movies, aes(x = critics_score, y = audience_score)) + geom_point()
+p33 <- ggplot(movies, aes(x = best_pic_nom, y = audience_score)) + geom_boxplot()
+p34 <- ggplot(movies, aes(x = best_pic_win, y = audience_score)) + geom_boxplot()
+p41 <- ggplot(movies, aes(x = best_actor_win, y = audience_score)) + geom_boxplot()
+p42 <- ggplot(movies, aes(x = best_actress_win, y = audience_score)) + geom_boxplot()
+p43 <- ggplot(movies, aes(x = best_dir_win, y = audience_score)) + geom_boxplot()
+p44 <- ggplot(movies, aes(x = top200_box, y = audience_score)) + geom_boxplot()
+grid.arrange(p01, p02, p03, p04, ncol=2, top="Features vs Audience Score")
+grid.arrange(p11, p12, p13, p14, ncol=2, top="Features vs Audience Score")
+grid.arrange(p21, p22, p23, p24, ncol=2, top="Features vs Audience Score")
+grid.arrange(p31, p32, p33, p34, ncol=2, top="Features vs Audience Score")
+grid.arrange(p41, p42, p43, p44, ncol=2, top="Features vs Audience Score")
+```
+
+We ploted each variable against the predicted variable (audience_score). IMDB Rating and Critic's Score seem to positive correlation with Audience Score. Being the featured film, the best picture nominee and the best picture winner also imply a higher audience score than most of the films but these are not obvious as the rating and the score.
+
+```{r}
+corr_data <- na.omit(movies) %>% select(runtime, imdb_rating, critics_score, audience_score)
+corr <- round(cor(corr_data, method='pearson'),3)
+ggcorrplot(corr, 
+           hc.order = TRUE, 
+           type = "lower", 
+           lab = TRUE, 
+           title="Correlation Matrix", 
+           ggtheme=theme_bw)
+```
+
+The correlations were measured using the pearson correlation method. We can see that imdb_rating has the highest correlation of 0.86 followed by critics_score being 0.7. The runtime was included to show that the correlation is only 0.2.
+
+* * *
+
+## Part 4: Modeling
+
+### Feature Selection
+
+We selected the numerical predictors and removed the missing rows.
+
+```{r}
+movies_features <- movies %>% select(audience_score,
+                 runtime, thtr_rel_year, imdb_rating, imdb_num_votes,
+                 best_pic_nom, best_pic_win, critics_score, 
+                 best_actor_win, best_actress_win, best_dir_win, top200_box,
+                 feature_film, drama, mpaa_rating_R, oscar_season, summer_season)
+movies_features <- na.omit(movies_features)
+```
+
+### Use bas.lm to find the best model
+
+A bayesian model averaging using adaptive sampling for a linear regression model was created using all of the sixteen predictors which results in 2^16 of possible model combinations. Because of the large number of models, we used the Markov Chain Monte Carlo (MCMC) method for the model fitting step and the Zellner-Siow Cauchy distribution for the prior probabilities of the regression coefficients.
+
+The result is that the model with the highest posterior probability (0.1389) contains only two of the predictors: imbd_rating and critics_score.
+
+```{r}
+set.seed(100000)
+baslm = bas.lm(audience_score ~ . -audience_score, 
+                   data = movies_features,
+                   prior = "ZS-null", 
+                   modelprior = uniform(),
+                   method = 'MCMC')
+
+summary(baslm)
+```
+### Model Evaluation
+```{r}
+diagnostics(baslm)
+```
+
+The chart above shows that the posterior model probabilities follow a normal distribution. So we do not need more MCMC iterations.
+
+```{r}
+plot(baslm, which = 1, add.smooth = T)
+```
+
+The chart shows that the model tends to predict too low for the ratings under a value of 40 and too high for the ratings between 50 and 70. We might need more features to fix this problem. From this graph, it appears that we have three outliers which have been flagged as the points with the three largest residuals.
+
+```{r}
+plot(baslm, which = 2, add.smooth = T)
+```
+
+The chart shows that the cumulative posterior probability reachs the maximum value (1.0) after approximately 3,000 model combinations.
+
+```{r}
+plot(baslm, which = 3, add.smooth = T)
+```
+
+The best models with the highest marginal likelihood are in the range of 2 to 4 predictors.
+
+```{r}
+plot(baslm, which = 4, add.smooth = T)
+```
+
+This plot of inclusion probabilities confirms our expolatory data analysis that the imdb_rating and critics_score are positively correlated predictors for audience_score.
+
+```{r}
+image(baslm, rotate = FALSE)
+```
+
+For the top 18 model combinations, almost all best ranking models use imdb_rating and critics_score.
+
+```{r}
+coef(baslm)
+```
+
+The impact of the coefficients of each variable are as follows. 
+
+- imdb_rating (with a positive coefficient)
+- critics_score (with a positive coefficient)
+- runtime (with a negative coefficient)
+- mpaa_rating_Ryes (with a negative coefficient)
+
+```{r}
+confint(coef(baslm))
+par(mfrow=c(1,3))
+plot(coef(baslm), subset=c(1, 4, 8), ask=FALSE)
+```
+
+The plot displays the posterior distributions of the regression coefficients. The vertical line at zero on the X axis indicates that the posterior probability of the coefficient is zero. The coefficient of imdb_rating is higher than zero for all the models.
+
+* * *
+
+## Part 5: Prediction
+We tested the performance of bayesian model averaging with an out-of-sample movie. The movie in this test is "Your Name", the most successful Japanese animation in 2016 (http://www.imdb.com/title/tt5311514/?ref_=adv_li_tt, https://www.rottentomatoes.com/m/your_name_2017/). The true audience score for the movie is 94.9. Surprisingly, the model prediction is 94 with a 95% prediction interval of 76.6 to 113.2 The predicted value seems to be consistent with the actual value.
+
+```{r}
+new_movie <- data.frame(
+  runtime=112,
+  thtr_rel_year=2016,
+  imdb_rating=8.5,
+  imdb_num_votes=70326,
+  critics_score=97,
+  audience_score=0,
+  best_pic_nom=factor("no", levels=c("no", "yes")),
+  best_pic_win=factor("no", levels=c("no", "yes")),
+  best_actor_win=factor("no", levels=c("no", "yes")),
+  best_actress_win=factor("no", levels=c("no", "yes")),
+  best_dir_win=factor("no", levels=c("no", "yes")),
+  top200_box=factor("no", levels=c("no", "yes")),
+  feature_film=factor("no", levels=c("no", "yes")),
+  drama=factor("no", levels=c("no", "yes")),
+  mpaa_rating_R=factor("no", levels=c("no", "yes")),
+  oscar_season=factor("no", levels=c("no", "yes")),
+  summer_season=factor("no", levels=c("no", "yes"))
+)
+
+predicted_score <- predict(baslm, new_movie, estimator = "BMA", se.fit=TRUE)
+ci = qt(0.95, df=predicted_score$se.bma.pred[1]) * mean(predicted_score$se.bma.pred)
+data.frame(
+  actual=94,
+  predicted=predicted_score$fit,
+  "2.5"=predicted_score$fit - ci,
+  "97.5"=predicted_score$fit + ci
+)
+```
+
+* * *
+
+## Part 6: Conclusion
+In conclusion, our Bayesian regression model was proved to be effective in predicting movie's audience score based on its attributes. Although, the model does not fit the data very well since it can predict wrongly for a movie with a low audience score; nonetheless, the model can be improved by various methods; for example, we can include genre for modeling to make the prediction more accurate.
